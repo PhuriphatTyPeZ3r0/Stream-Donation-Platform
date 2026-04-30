@@ -1,0 +1,12 @@
+{
+  "name": "stream-donation-platform",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"./apps/**\" run dev",
+    "build": "pnpm --recursive run build",
+    "lint": "pnpm --recursive run lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

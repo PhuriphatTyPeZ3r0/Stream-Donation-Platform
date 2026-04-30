@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong!Passw0rd
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  service-donation:
+    build:
+      context: ./apps/service-donation
+    ports:
+      - "3001:3001"
+    environment:
+      - DB_SERVER=sqlserver # อ้างอิงชื่อ Service ใน Docker Compose ได้เลย
+      - DB_USER=sa
+      - DB_PASSWORD=YourStrong!Passw0rd
+      - DB_NAME=StreamDonationDB
+    depends_on:
+      - sqlserver
+
+  service-webhook:
+    build:
+      context: ./apps/service-webhook
+    ports:
+      - "3002:3002"
+    environment:
+      - DB_SERVER=sqlserver
+      - DB_USER=sa
+      - DB_PASSWORD=YourStrong!Passw0rd
+      - DB_NAME=StreamDonationDB
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - sqlserver
+      - redis
+
+  service-overlay:
+    build:
+      context: ./apps/service-overlay
+    ports:
+      - "3003:3003"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+
+  frontend-app:
+    build:
+      context: ./apps/frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_DONATION_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_WEBHOOK_WS_URL=ws://localhost:3003
+    depends_on:
+      - service-donation
+      - service-webhook
+      - service-overlay
+
+volumes:
+  sqlserver_data:
+  redis_data:

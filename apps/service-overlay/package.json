@@ -1,0 +1,17 @@
+{
+  "name": "service-overlay",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "socket.io": "^4.7.4",
+    "ioredis": "^5.3.2",
+    "@stream-donation/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  }
+}
