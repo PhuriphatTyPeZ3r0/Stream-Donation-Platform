@@ -8,7 +8,7 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
         const result = await sql`
             SELECT username, display_name, bio, avatar_url, theme_color 
             FROM users 
-            WHERE id = ${userId}
+            WHERE id::text = ${userId}
         `;
         const user = result[0];
         
@@ -34,7 +34,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
                 avatar_url = ${avatar_url || null},
                 theme_color = ${theme_color || '#3B82F6'},
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = ${userId}
+            WHERE id::text = ${userId}
             RETURNING id, display_name
         `;
         res.status(200).json({ message: 'อัปเดตโปรไฟล์สำเร็จ', data: updatedUser[0] });

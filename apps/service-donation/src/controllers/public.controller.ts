@@ -10,7 +10,7 @@ export const getPublicStreamerProfile = async (req: Request, res: Response): Pro
             SELECT u.id, u.username, u.display_name, u.bio, u.avatar_url, u.theme_color,
                    s.min_donation_amount
             FROM users u
-            LEFT JOIN streamer_settings s ON u.id = s.streamer_id
+            LEFT JOIN streamer_settings s ON u.id::text = s.streamer_id
             WHERE u.username = ${username}
         `;
 
