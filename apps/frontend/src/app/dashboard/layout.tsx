@@ -9,10 +9,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const { data: session } = useSession();
 
-  // กำหนดรายการเมนู
   const menuItems = [
     { name: 'ภาพรวม (Overview)', href: '/dashboard', icon: LayoutDashboard },
     { name: 'ประวัติโดเนท (History)', href: '/dashboard/history', icon: History },
+    { name: 'จัดการโปรไฟล์ (Profile)', href: '/dashboard/profile', icon: UserCircle },
     { name: 'ตั้งค่าระบบ (Settings)', href: '/dashboard/settings', icon: Settings },
   ];
 

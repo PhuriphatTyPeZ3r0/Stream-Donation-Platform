@@ -7,7 +7,12 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(50) UNIQUE,
     password_hash VARCHAR(255),
     google_id VARCHAR(100) UNIQUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    display_name VARCHAR(100),
+    bio TEXT,
+    avatar_url VARCHAR(500),
+    theme_color VARCHAR(20) DEFAULT '#3B82F6',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. streamer_settings Table
