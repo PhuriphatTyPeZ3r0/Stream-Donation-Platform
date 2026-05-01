@@ -12,3 +12,11 @@ export interface StreamerProfile {
   displayName: string;
   promptPayId: string;
 }
+
+export interface DonationEvent {
+  streamerId: string;
+  senderName: string;
+  message: string;
+  amount: number;
+  timestamp: string;
+}
