@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -44,6 +45,9 @@ const columns = [
 ];
 
 export default function HistoryPage() {
+  const { data: session, status } = useSession();
+  const streamerId = session?.user?.name || session?.user?.id; 
+
   const [data, setData] = useState<DonationRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,7 +57,6 @@ export default function HistoryPage() {
   const [totalPages, setTotalPages] = useState(1);
   const limit = 10;
 
-  const streamerId = 'STREAMER_01'; // ในอนาคตดึงจาก Auth
   const API_URL = process.env.NEXT_PUBLIC_DONATION_API_URL || 'http://localhost:3001';
 
   const table = useReactTable({
@@ -64,6 +67,8 @@ export default function HistoryPage() {
 
   useEffect(() => {
     const fetchHistory = async () => {
+      if (status !== 'authenticated' || !streamerId) return;
+
       setLoading(true);
       try {
         const res = await fetch(`${API_URL}/api/donations/history/${streamerId}?page=${page}&limit=${limit}`);
@@ -85,7 +90,11 @@ export default function HistoryPage() {
     };
 
     fetchHistory();
-  }, [page, API_URL, streamerId]);
+  }, [page, API_URL, streamerId, status]);
+
+  if (status === 'loading') {
+    return <div className="p-8 text-center">กำลังตรวจสอบสิทธิ์...</div>;
+  }
 
   return (
     <div className="max-w-6xl mx-auto p-8">

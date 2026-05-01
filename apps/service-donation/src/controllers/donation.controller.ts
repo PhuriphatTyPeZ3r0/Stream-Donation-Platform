@@ -98,8 +98,9 @@ export const getDonationHistory = async (req: Request, res: Response): Promise<v
             .execute('sp_GetRecentSuccessfulDonations');
             
         // Recordsets array will contain multiple SELECT results if SP returns them.
-        const data = result.recordsets[0];
-        const totalCount = result.recordsets[1] ? result.recordsets[1][0].TotalCount : data.length;
+        const recordsets = result.recordsets as any[];
+        const data = recordsets[0];
+        const totalCount = recordsets[1] ? recordsets[1][0].TotalCount : data.length;
 
         res.status(200).json({
             message: 'Donation history fetched successfully',

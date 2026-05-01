@@ -1,0 +1,44 @@
+services:
+  # 1. Donation Service (API)
+  - type: web
+    name: stream-service-donation
+    env: node
+    buildCommand: corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm --filter service-donation run build
+    startCommand: pnpm --filter service-donation run start
+    envVars:
+      - key: DB_SERVER
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: StreamDonationDB
+      
+  # 2. Webhook Service (รับ Callback จากธนาคาร)
+  - type: web
+    name: stream-service-webhook
+    env: node
+    buildCommand: corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm --filter service-webhook run build
+    startCommand: pnpm --filter service-webhook run start
+    envVars:
+      - key: DB_SERVER
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: StreamDonationDB
+      - key: REDIS_URL
+        sync: false
+      
+  # 3. Overlay Service (WebSockets สำหรับ OBS)
+  - type: web
+    name: stream-service-overlay
+    env: node
+    buildCommand: corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm --filter service-overlay run build
+    startCommand: pnpm --filter service-overlay run start
+    envVars:
+      - key: REDIS_URL
+        sync: false

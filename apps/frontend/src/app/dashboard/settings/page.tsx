@@ -1,30 +1,37 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 
 export default function SettingsPage() {
+  const { data: session, status } = useSession();
+  const streamerId = session?.user?.name || session?.user?.id; 
+
   const [promptPayId, setPromptPayId] = useState('');
   const [minDonation, setMinDonation] = useState(10);
   const [goalAmount, setGoalAmount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
-  // Mock Streamer ID (รอผูกกับ NextAuth.js ในอนาคต)
-  const streamerId = 'STREAMER_01'; 
   const API_URL = process.env.NEXT_PUBLIC_DONATION_API_URL || 'http://localhost:3001';
 
   useEffect(() => {
-    // ดึงข้อมูลเดิมมาแสดง
-    fetch(`${API_URL}/api/settings/${streamerId}`)
-      .then(res => res.json())
-      .then(result => {
-        if (result.data) {
-          setPromptPayId(result.data.PromptPayId);
-          setMinDonation(result.data.MinDonationAmount);
-          setGoalAmount(result.data.GoalAmount);
-        }
-      });
-  }, [API_URL, streamerId]);
+    if (status === 'authenticated' && streamerId) {
+      fetch(`${API_URL}/api/settings/${streamerId}`)
+        .then(res => res.json())
+        .then(result => {
+          if (result.data) {
+            setPromptPayId(result.data.PromptPayId);
+            setMinDonation(result.data.MinDonationAmount);
+            setGoalAmount(result.data.GoalAmount);
+          }
+        });
+    }
+  }, [API_URL, streamerId, status]);
+
+  if (status === 'loading') {
+    return <div className="p-8 text-center">กำลังตรวจสอบสิทธิ์...</div>;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

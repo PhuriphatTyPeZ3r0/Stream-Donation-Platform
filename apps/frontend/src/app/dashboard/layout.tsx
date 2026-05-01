@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, History, Settings, LogOut, Wallet } from 'lucide-react';
+import { LayoutDashboard, History, Settings, LogOut, Wallet, UserCircle } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   // กำหนดรายการเมนู
   const menuItems = [
@@ -51,7 +53,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* User / Logout Section */}
         <div className="p-4 border-t border-gray-100">
-          <button className="flex items-center w-full px-4 py-3 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors font-medium group">
+          {session?.user && (
+            <div className="flex items-center px-4 py-3 mb-2 bg-gray-50 rounded-xl">
+              <UserCircle className="w-8 h-8 text-blue-500 mr-3" />
+              <div className="overflow-hidden">
+                <p className="text-sm font-bold text-gray-800 truncate">{session.user.name}</p>
+                <p className="text-xs text-gray-500 truncate">{session.user.email}</p>
+              </div>
+            </div>
+          )}
+          <button 
+            onClick={() => signOut({ callbackUrl: '/auth/login' })}
+            className="flex items-center w-full px-4 py-3 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors font-medium group"
+          >
             <LogOut className="w-5 h-5 mr-3 text-gray-400 group-hover:text-red-500" />
             ออกจากระบบ
           </button>
