@@ -9,7 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
     "framer-motion": "^11.2.10",
+    "lucide-react": "^1.14.0",
     "next": "14.2.3",
     "react": "^18",
     "react-dom": "^18",

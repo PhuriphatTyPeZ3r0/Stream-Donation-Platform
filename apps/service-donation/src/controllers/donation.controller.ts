@@ -81,6 +81,8 @@ export const createDonation = async (req: Request, res: Response): Promise<void>
 export const getDonationHistory = async (req: Request, res: Response): Promise<void> => {
     const { streamerId } = req.params;
     const limit = parseInt(req.query.limit as string) || 20;
+    const page = parseInt(req.query.page as string) || 1;
+    const offset = (page - 1) * limit;
 
     if (!streamerId) {
         res.status(400).json({ error: 'Streamer ID is required' });
@@ -92,11 +94,22 @@ export const getDonationHistory = async (req: Request, res: Response): Promise<v
         const result = await pool.request()
             .input('StreamerId', sql.VarChar(50), streamerId)
             .input('Limit', sql.Int, limit)
+            .input('Offset', sql.Int, offset)
             .execute('sp_GetRecentSuccessfulDonations');
             
+        // Recordsets array will contain multiple SELECT results if SP returns them.
+        const data = result.recordsets[0];
+        const totalCount = result.recordsets[1] ? result.recordsets[1][0].TotalCount : data.length;
+
         res.status(200).json({
             message: 'Donation history fetched successfully',
-            data: result.recordset
+            data: data,
+            meta: {
+                page,
+                limit,
+                total: totalCount,
+                totalPages: Math.ceil(totalCount / limit)
+            }
         });
     } catch (error: any) {
         console.error('Error fetching history:', error.message);
