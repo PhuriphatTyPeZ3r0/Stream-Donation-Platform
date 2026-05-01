@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { sql, poolPromise } from '../config/database';
+import { sql } from '../config/database';
 import bcrypt from 'bcryptjs';
 
 export const registerUser = async (req: Request, res: Response): Promise<void> => {
@@ -11,24 +11,28 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
     }
 
     try {
-        // เข้ารหัสผ่าน
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('Email', sql.VarChar(100), email)
-            .input('Username', sql.VarChar(50), username)
-            .input('PasswordHash', sql.VarChar(255), passwordHash)
-            .execute('sp_RegisterUser');
+        // Check if user exists
+        const checkResult = await sql`
+            SELECT 1 FROM users WHERE email = ${email} OR username = ${username}
+        `;
 
-        const dbResult = result.recordset[0];
-
-        if (dbResult.ResultStatus === 'SUCCESS') {
-            res.status(201).json({ message: 'สมัครสมาชิกสำเร็จ', user: { id: dbResult.Id, email, username } });
-        } else {
-            res.status(400).json({ error: dbResult.Message });
+        if (checkResult.length > 0) {
+            res.status(400).json({ error: 'Email or Username already exists' });
+            return;
         }
+
+        // Insert new user
+        const insertResult = await sql`
+            INSERT INTO users (email, username, password_hash) 
+            VALUES (${email}, ${username}, ${passwordHash}) 
+            RETURNING id, email, username
+        `;
+
+        const newUser = insertResult[0];
+        res.status(201).json({ message: 'สมัครสมาชิกสำเร็จ', user: { id: newUser.id, email, username } });
 
     } catch (error: any) {
         console.error('Register Error:', error.message);
@@ -45,25 +49,23 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     }
 
     try {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('Email', sql.VarChar(100), email)
-            .query('SELECT Id, Email, Username, PasswordHash FROM Users WHERE Email = @Email');
-
-        const user = result.recordset[0];
+        const result = await sql`
+            SELECT id, email, username, password_hash FROM users WHERE email = ${email}
+        `;
+        const user = result[0];
 
         if (!user) {
             res.status(401).json({ error: 'ไม่พบบัญชีผู้ใช้งาน' });
             return;
         }
 
-        const isValidPassword = await bcrypt.compare(password, user.PasswordHash);
+        const isValidPassword = await bcrypt.compare(password, user.password_hash);
         if (!isValidPassword) {
             res.status(401).json({ error: 'รหัสผ่านไม่ถูกต้อง' });
             return;
         }
 
-        res.status(200).json({ user: { id: user.Id, email: user.Email, username: user.Username } });
+        res.status(200).json({ user: { id: user.id, email: user.email, username: user.username } });
 
     } catch (error: any) {
         console.error('Login Error:', error.message);

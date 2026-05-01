@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { sql, poolPromise } from '../config/database';
+import { sql } from '../config/database';
 import generatePayload from 'promptpay-qr';
 import qrcode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,64 +13,49 @@ export const createDonation = async (req: Request, res: Response): Promise<void>
     }
 
     try {
-        const pool = await poolPromise;
+        // 1. ดึงการตั้งค่าของสตรีมเมอร์
+        const settingsResult = await sql`
+            SELECT promptpay_id, min_donation_amount 
+            FROM streamer_settings 
+            WHERE streamer_id = ${streamerId}
+        `;
 
-        // 1. ดึงการตั้งค่าของสตรีมเมอร์ (PromptPay ID และ ยอดขั้นต่ำ)
-        const settingsResult = await pool.request()
-            .input('StreamerId', sql.VarChar(50), streamerId)
-            .execute('sp_GetStreamerPaymentInfo');
+        const streamerInfo = settingsResult[0];
 
-        const streamerInfo = settingsResult.recordset[0];
-
-        if (!streamerInfo || !streamerInfo.PromptPayId) {
+        if (!streamerInfo || !streamerInfo.promptpay_id) {
             res.status(404).json({ error: 'Streamer has not configured payment settings.' });
             return;
         }
 
-        if (amount < streamerInfo.MinDonationAmount) {
-            res.status(400).json({ error: `Minimum donation amount is ${streamerInfo.MinDonationAmount} THB` });
+        if (amount < streamerInfo.min_donation_amount) {
+            res.status(400).json({ error: `Minimum donation amount is ${streamerInfo.min_donation_amount} THB` });
             return;
         }
 
         // 2. สร้าง String Payload ของ PromptPay
-        const payload = generatePayload(streamerInfo.PromptPayId, { amount: Number(amount) });
+        const payload = generatePayload(streamerInfo.promptpay_id, { amount: Number(amount) });
         
         // 3. แปลง Payload เป็นรูปภาพ QR Code (Base64)
-        // ตั้งค่า margin และสีให้สวยงามพร้อมแสดงผลบนเว็บ Next.js ของเรา
         const qrImageBase64 = await qrcode.toDataURL(payload, {
             margin: 2,
             width: 300,
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-            }
+            color: { dark: '#000000', light: '#FFFFFF' }
         });
 
-        // 4. สร้าง Payment Reference ID สำหรับรอรับ Webhook
+        // 4. สร้าง Payment Reference ID
         const paymentRef = `TXN_${uuidv4().replace(/-/g, '').substring(0, 16).toUpperCase()}`;
 
-        // 5. บันทึกข้อมูลลง Database เป็นสถานะ 'Pending'
-        const insertResult = await pool.request()
-            .input('StreamerId', sql.VarChar(50), streamerId)
-            .input('SenderName', sql.NVarChar(100), senderName)
-            .input('Message', sql.NVarChar(500), message || '')
-            .input('Amount', sql.Decimal(18, 2), amount)
-            .input('PaymentRef', sql.VarChar(100), paymentRef)
-            .execute('sp_CreateDonation');
+        // 5. บันทึกข้อมูลลง Database เป็นสถานะ 'PENDING'
+        await sql`
+            INSERT INTO donations (streamer_id, sender_name, message, amount, payment_ref, status) 
+            VALUES (${streamerId}, ${senderName}, ${message || ''}, ${amount}, ${paymentRef}, 'PENDING')
+        `;
 
-        if (insertResult.recordset[0] && insertResult.recordset[0].ResultStatus === 'SUCCESS') {
-            // 6. ส่งรูปภาพ QR Code กลับไปให้ Frontend แสดงผล
-            res.status(201).json({
-                message: 'Donation QR Code generated successfully',
-                data: {
-                    paymentRef: paymentRef,
-                    qrImageBase64: qrImageBase64,
-                    amount: amount
-                }
-            });
-        } else {
-            res.status(500).json({ error: 'Failed to create donation record' });
-        }
+        // 6. ส่งรูปภาพ QR Code กลับไปให้ Frontend
+        res.status(201).json({
+            message: 'Donation QR Code generated successfully',
+            data: { paymentRef, qrImageBase64, amount }
+        });
 
     } catch (error: any) {
         console.error('Error generating donation QR:', error.message);
@@ -90,21 +75,34 @@ export const getDonationHistory = async (req: Request, res: Response): Promise<v
     }
 
     try {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('StreamerId', sql.VarChar(50), streamerId)
-            .input('Limit', sql.Int, limit)
-            .input('Offset', sql.Int, offset)
-            .execute('sp_GetRecentSuccessfulDonations');
-            
-        // Recordsets array will contain multiple SELECT results if SP returns them.
-        const recordsets = result.recordsets as any[];
-        const data = recordsets[0];
-        const totalCount = recordsets[1] ? recordsets[1][0].TotalCount : data.length;
+        const result = await sql`
+            SELECT id, sender_name, message, amount, payment_ref, created_at 
+            FROM donations 
+            WHERE streamer_id = ${streamerId} AND status = 'SUCCESS' 
+            ORDER BY created_at DESC 
+            LIMIT ${limit} OFFSET ${offset}
+        `;
+        
+        const countResult = await sql`
+            SELECT COUNT(*) as total 
+            FROM donations 
+            WHERE streamer_id = ${streamerId} AND status = 'SUCCESS'
+        `;
+        
+        const totalCount = parseInt(countResult[0].total, 10);
+
+        const mappedData = result.map(row => ({
+            Id: row.id,
+            SenderName: row.sender_name,
+            Message: row.message,
+            Amount: row.amount,
+            PaymentRef: row.payment_ref,
+            CreatedAt: row.created_at
+        }));
 
         res.status(200).json({
             message: 'Donation history fetched successfully',
-            data: data,
+            data: mappedData,
             meta: {
                 page,
                 limit,
@@ -127,22 +125,19 @@ export const getDonationStatus = async (req: Request, res: Response): Promise<vo
     }
 
     try {
-        const pool = await poolPromise;
-        const result = await pool.request()
-            .input('PaymentRef', sql.VarChar(100), paymentRef)
-            .query('SELECT Status FROM Donations WHERE PaymentRef = @PaymentRef');
+        const result = await sql`
+            SELECT status FROM donations WHERE payment_ref = ${paymentRef}
+        `;
 
-        if (result.recordset.length === 0) {
+        if (result.length === 0) {
             res.status(404).json({ error: 'Donation not found' });
             return;
         }
 
-        const status = result.recordset[0].Status;
-        
         res.status(200).json({ 
             data: { 
                 paymentRef, 
-                status 
+                status: result[0].status 
             } 
         });
 
