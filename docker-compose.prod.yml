@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  service-donation:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        SERVICE_NAME: service-donation
+    ports:
+      - "3001:3001"
+    environment:
+      - DB_SERVER=${DB_SERVER}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+    restart: unless-stopped
+
+  service-webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        SERVICE_NAME: service-webhook
+    ports:
+      - "3002:3002"
+    environment:
+      - DB_SERVER=${DB_SERVER}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - REDIS_URL=${REDIS_URL}
+    restart: unless-stopped
+
+  service-overlay:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      args:
+        SERVICE_NAME: service-overlay
+    ports:
+      - "3003:3003"
+    environment:
+      - REDIS_URL=${REDIS_URL}
+    restart: unless-stopped

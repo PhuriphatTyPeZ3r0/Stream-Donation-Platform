@@ -1,0 +1,36 @@
+name: Deploy Backend to VPS
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/service-**'
+      - 'packages/**'
+      - 'docker-compose.prod.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            # ไปที่โฟลเดอร์โปรเจกต์
+            cd /path/to/your/Stream-Donation-Platform
+            
+            # ดึงโค้ดล่าสุดจาก GitHub
+            git pull origin main
+            
+            # รัน Docker Compose เพื่อ Build และ Start Services (แบบไม่ให้มี Downtime)
+            docker compose -f docker-compose.prod.yml up -d --build
+            
+            # ลบ Image ขยะที่ไม่ได้ใช้แล้ว
+            docker image prune -f

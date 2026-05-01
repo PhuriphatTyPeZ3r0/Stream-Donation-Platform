@@ -1,0 +1,27 @@
+FROM node:20-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Enable Corepack and pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy root configurations
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Copy all source code (Need the whole workspace because of @stream-donation/shared-types)
+COPY apps/ ./apps/
+COPY packages/ ./packages/
+
+# Install dependencies
+RUN pnpm install
+
+# Accept service name as argument
+ARG SERVICE_NAME
+
+# Build the specific service
+RUN pnpm --filter ${SERVICE_NAME} run build
+
+# Start the service
+ENV START_SERVICE=${SERVICE_NAME}
+CMD pnpm --filter ${START_SERVICE} run start
